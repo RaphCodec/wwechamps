@@ -151,6 +151,20 @@ wheels = [
 ]
 
 [[package]]
+name = "mechanicalsoup"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "lxml" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/11/61d95339e23b5e6fe3b6bbf2782fd65394eac2af79c42b49c13e216f2bed/MechanicalSoup-1.3.0.tar.gz", hash = "sha256:38e8748f62fd9455a0818701a9e2dbfa549639d09f829f3fdd03665c825e7ce1", size = 50826 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/26/e48f1499547475659c49d4d8143b26b9488a0358997bfba13617d4e7dbe7/MechanicalSoup-1.3.0-py3-none-any.whl", hash = "sha256:83dfc23bbbcaafb62dd43e0f12aee3202e780650b4612d999b54324558980114", size = 19963 },
+]
+
+[[package]]
 name = "numpy"
 version = "2.2.4"
 source = { registry = "https://pypi.org/simple" }
@@ -322,6 +336,7 @@ dependencies = [
     { name = "duckdb" },
     { name = "loguru" },
     { name = "lxml" },
+    { name = "mechanicalsoup" },
     { name = "pandas" },
     { name = "wikipedia" },
 ]
@@ -336,6 +351,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.2.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "lxml", specifier = ">=5.3.1" },
+    { name = "mechanicalsoup", specifier = ">=1.3.0" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "wikipedia", specifier = ">=1.4.0" },
 ]
