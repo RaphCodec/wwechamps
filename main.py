@@ -12,65 +12,55 @@ logger.add(
     level="DEBUG",
     format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}",
     backtrace=True,
-    diagnose=True,
-    colorize=True,
 )
 
 
 def main():
-    html = wp.page("List_of_WWE_Champions").html()
-    wwe_champs = pd.read_html(html)[2]
-    logger.info("Dataframe wwe_champs created")
+    with duckdb.connect(database="data/wwe.duckdb") as con:
+        with open('sql/table.sql', 'r') as f:
+            sql = f.read()
+        con.execute(sql)
+        logger.success("Table created successfully")
+    logger.info("Loading data from Wikipedia")
 
-    wwe_champs.columns = wwe_champs.columns.droplevel(0).str.lower()
-    wwe_champs = wwe_champs[
-        pd.to_numeric(wwe_champs["no."], errors="coerce").notna()
-    ].drop(wwe_champs.columns[-2:], axis=1)
 
-    champions = pd.DataFrame(data={"champion": wwe_champs["champion"].unique()})
-    champions.insert(loc=0, column="championID", value=champions.index + 1)
+    wiki_pages = [
+        ("List_of_WWE_Champions", "WWE Championship"),
+        ("List_of_World_Heavyweight_Champions_(WWE,_2002–2013)", "World Heavyweight Championship"),
+        ("World_Heavyweight_Championship_(WWE)", "World Heavyweight Championship (WWE)"),
+        ("List_of_WWE_Intercontinental_Champions", "Intercontinental Championship"),
+        ("List_of_WWE_United_States_Champions", "United States Championship"),
+    ]
 
-    events = pd.DataFrame(data={"event": wwe_champs["event"].unique()})
-    events.insert(loc=0, column="eventID", value=events.index + 1)
+    for i, (page, title) in enumerate(wiki_pages, 1):
+        logger.info(f"Processing {title} ({i} of {len(wiki_pages)})")
+        html = wp.page(page).html()
 
-    locations = pd.DataFrame(data={"location": wwe_champs["location"].unique()})
-    locations.insert(loc=0, column="locationID", value=locations.index + 1)
+        if i in [3]:
+            df = pd.read_html(html)[3]
+        else:
+            df = pd.read_html(html)[2]
+        logger.info(f"Dataframe for {title} created")
 
-    wwe_champs["champion"] = wwe_champs["champion"].map(
-        champions.set_index("champion")["championID"].to_dict()
-    )
-    wwe_champs["event"] = wwe_champs["event"].map(
-        events.set_index("event")["eventID"].to_dict()
-    )
-    wwe_champs["location"] = wwe_champs["location"].map(
-        locations.set_index("location")["locationID"].to_dict()
-    )
+        df.columns = df.columns.droplevel(0).str.lower()
+        df = df[
+            pd.to_numeric(df["no."], errors="coerce").notna()
+        ].drop(df.columns[-2:], axis=1).rename(
+            columns={"no.": "title_reign", "days recog.": "days_recognized"}
+        )
+        
+        df = df.assign(
+                reign = pd.to_numeric(df["reign"], errors="coerce"),
+                date = pd.to_datetime(df["date"], format="%B %d, %Y", errors="coerce").dt.date,
+                days = pd.to_numeric(df['days'].str.replace('<1', '0'), errors="coerce"),
+                days_recognized = pd.to_numeric(df['days_recognized'].str.replace('<1', '0'), errors="coerce"),
+                title=title,
+        )
 
-    wwe_champs = wwe_champs.assign(
-        **{
-            "no.": pd.to_numeric(wwe_champs["no."], errors="coerce"),
-            "days": pd.to_numeric(wwe_champs["days"], errors="coerce"),
-            "reign": pd.to_numeric(wwe_champs["reign"], errors="coerce"),
-            "days recog.": pd.to_numeric(wwe_champs["days recog."], errors="coerce"),
-            "date": pd.to_datetime(
-                wwe_champs["date"], format="%B %d, %Y", errors="coerce"
-            ),
-            "title": "WWE Championship",
-        }
-    ).rename(columns={"no.": "no", "days recog.": "days_recognized"})
-
-    logger.info("Loading data into duckdb")
-
-    con = duckdb.connect(database="data/wwe.duckdb")
-    con.execute("CREATE OR REPLACE TABLE champions AS SELECT * FROM champions")
-    con.execute("CREATE OR REPLACE TABLE events AS SELECT * FROM events")
-    con.execute("CREATE OR REPLACE TABLE locations AS SELECT * FROM locations")
-    con.execute("CREATE OR REPLACE TABLE wwe_champs AS SELECT * FROM wwe_champs")
-    con.execute("ALTER TABLE wwe_champs ADD PRIMARY KEY (no)")
-    con.execute("ALTER TABLE champions ADD PRIMARY KEY (championID)")
-    con.execute("ALTER TABLE events ADD PRIMARY KEY (eventID)")
-    con.close()
-    logger.success("database created successfully")
+        logger.info(f"Loading {title} into duckdb")
+        with duckdb.connect(database="data/wwe.duckdb") as con:
+            con.execute("INSERT INTO champs SELECT * FROM df")
+        logger.success(f"Data from {title} loaded successfully")
 
     return
 
